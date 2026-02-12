@@ -94,6 +94,8 @@ void proto_send_promisc_status(bool enabled)
 void proto_send_frame(const wifi_promiscuous_pkt_t *pkt,
                       wifi_promiscuous_pkt_type_t type)
 {
+    if (!scanning) return;
+
     uint16_t sig_len = pkt->rx_ctrl.sig_len;
     if (sig_len > MAX_FRAME_LEN) return; /* oversized, drop */
 
@@ -187,7 +189,9 @@ static void handle_command(const uint8_t *data, size_t len)
             proto_send_error(hdr.msg_type, ERR_INVALID_CHANNEL);
             return;
         }
-        /* ensure promiscuous mode is on */
+        scan_channel = (ch == 0) ? -1 : (int)ch;
+        scanning = true;
+        /* ensure promiscuous mode is on (after scanning=true so callback sees it) */
         if (!promisc_on) {
             wifi_promiscuous_filter_t filt = {
                 .filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT
@@ -196,8 +200,6 @@ static void handle_command(const uint8_t *data, size_t len)
             esp_wifi_set_promiscuous(true);
             promisc_on = true;
         }
-        scan_channel = (ch == 0) ? -1 : (int)ch;
-        scanning = true;
         if (scan_task_handle) {
             xTaskNotify(scan_task_handle, 1, eSetValueWithOverwrite);
         }
