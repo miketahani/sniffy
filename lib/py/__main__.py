@@ -102,7 +102,7 @@ def cmd_promisc(client: SnifferClient, args: argparse.Namespace) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        prog="python -m lib",
+        prog="python -m lib.py",
         description="Flock Safety sniffer CLI",
     )
     parser.add_argument("port", help="Serial port (e.g. /dev/ttyACM0, COM3)")
