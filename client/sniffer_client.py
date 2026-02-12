@@ -1,24 +1,7 @@
-"""Python client for the ESP32-C6 WiFi sniffer firmware.
-
-Usage:
-    from sniffer_client import SnifferClient
-
-    with SnifferClient("/dev/ttyACM0") as s:
-        s.scan()              # scan all channels
-        s.scan(channel=6)     # scan single channel
-        s.stop()              # stop scanning
-        s.promisc_on()        # enable promiscuous mode
-        s.promisc_off()       # disable promiscuous mode
-        print(s.promisc_status())  # True / False
-
-        # frames are collected in s.frames (deque)
-        for f in s.frames:
-            print(f)
-"""
+"""Python client for the ESP32-C6 WiFi sniffer firmware."""
 
 import struct
 import threading
-from collections import deque
 from typing import Optional, Callable
 
 import serial
@@ -66,8 +49,8 @@ class SnifferClient:
     Args:
         port: Serial port path (e.g. "/dev/ttyACM0" or "COM3").
         baudrate: Baud rate (default 115200, ignored for USB CDC-ACM).
-        on_frame: Optional callback invoked for each received frame.
-                  Signature: on_frame(frame: Frame) -> None
+        on_frame: Callback invoked for each received frame.
+                  Signature: ``on_frame(frame: Frame) -> None``
     """
 
     TIMEOUT = 3.0  # seconds to wait for a command response
@@ -79,8 +62,8 @@ class SnifferClient:
         on_frame: Optional[Callable[["Frame"], None]] = None,
     ):
         self._ser = serial.Serial(port, baudrate, timeout=0.05)
-        self._on_frame = on_frame
-        self.frames: deque[Frame] = deque(maxlen=10000)
+        self._on_frame = on_frame or (lambda _: None)
+        self.frame_count = 0
         self.dropped = 0
 
         self._buf = bytearray()
@@ -204,7 +187,7 @@ class SnifferClient:
                 self._resp_event.set()
 
     def _handle_frame(self, data: bytes) -> None:
-        """Parse a frame event and add it to the queue."""
+        """Parse a frame event and deliver it to the on_frame callback."""
         _, _, payload_len = struct.unpack_from(HDR_FMT, data)
         payload = data[HDR_SIZE : HDR_SIZE + payload_len]
 
@@ -230,6 +213,5 @@ class SnifferClient:
                 self.dropped += gap
         self._seq_expect = (frame.seq_num + 1) & 0xFFFF
 
-        self.frames.append(frame)
-        if self._on_frame:
-            self._on_frame(frame)
+        self.frame_count += 1
+        self._on_frame(frame)
