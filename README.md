@@ -52,7 +52,7 @@ See each library's README for installation, API docs, and usage examples.
 
 ## Serial Protocol
 
-The device communicates over USB Serial CDC-ACM (115200 baud). Messages are binary, COBS-encoded, and delimited by `0x00` bytes.
+The device communicates over USB Serial CDC-ACM (115200 baud). Messages are COBS-encoded binary.
 
 ### Message Format
 
@@ -65,78 +65,33 @@ offset  size  field        description
 2       2     payload_len  payload length (little-endian)
 ```
 
-Followed by `payload_len` bytes of type-specific payload. The entire header+payload is then COBS-encoded and wrapped in `0x00` delimiters before being sent over the wire:
-
-```
-0x00 <COBS-encoded header+payload> 0x00
-```
+Followed by `payload_len` bytes of type-specific payload. The entire header+payload is then COBS-encoded and wrapped in `0x00` delimiters before being sent.
 
 ### Commands (Client → Device)
 
-#### `0x01` — Scan Start
+| Type | Name | Payload | Response | Description |
+|------|------|---------|----------|-------------|
+| `0x01` | Scan Start | 1 byte: channel (`0` = all) | ACK | Start WiFi scanning |
+| `0x02` | Scan Stop | — | ACK | Stop WiFi scanning |
+| `0x03` | Promisc On | — | ACK | Enable promiscuous mode |
+| `0x04` | Promisc Off | — | ACK | Disable promiscuous mode |
+| `0x05` | Promisc Query | — | Promisc Status | Query promiscuous mode state |
 
-Start WiFi scanning.
+#### Valid channels
 
-| Payload | Size | Description |
-|---------|------|-------------|
-| channel | 1 byte | Channel to scan. `0` = cycle through all channels. |
+- `1–13` (2.4 GHz)
 
-Valid channels: 1–13 (2.4 GHz), 36, 40, 44, 48, 149, 153, 157, 161, 165 (5 GHz).
+- `36`, `40`, `44`, `48`, `149`, `153`, `157`, `161`, `165` (5 GHz)
 
 In all-channel mode the firmware dwells ~2.5 seconds per channel.
 
-**Response:** ACK (`0x81`)
-
-#### `0x02` — Scan Stop
-
-Stop WiFi scanning.
-
-**Payload:** none
-
-**Response:** ACK (`0x81`)
-
-#### `0x03` — Promiscuous Mode On
-
-Enable promiscuous mode.
-
-**Payload:** none
-
-**Response:** ACK (`0x81`)
-
-#### `0x04` — Promiscuous Mode Off
-
-Disable promiscuous mode.
-
-**Payload:** none
-
-**Response:** ACK (`0x81`)
-
-#### `0x05` — Promiscuous Mode Query
-
-Query whether promiscuous mode is active.
-
-**Payload:** none
-
-**Response:** Promiscuous Status (`0x83`)
-
 ### Responses (Device → Client)
 
-#### `0x81` — ACK
-
-Acknowledges a command was processed successfully.
-
-| Payload | Size | Description |
-|---------|------|-------------|
-| cmd_type | 1 byte | The command type that was acknowledged |
-
-#### `0x82` — Error
-
-A command failed.
-
-| Payload | Size | Description |
-|---------|------|-------------|
-| cmd_type | 1 byte | The command type that failed |
-| error_code | 1 byte | Error code (see below) |
+| Type | Name | Payload | Description |
+|------|------|---------|-------------|
+| `0x81` | ACK | 1 byte: echoed command type | Command processed successfully |
+| `0x82` | Error | 1 byte: command type, 1 byte: error code | Command failed (see error codes) |
+| `0x83` | Promisc Status | 1 byte: `1` = on, `0` = off | Promiscuous mode state |
 
 **Error Codes:**
 
@@ -146,14 +101,6 @@ A command failed.
 | `0x02` | `ERR_INVALID_CHANNEL` | Invalid WiFi channel number |
 | `0x03` | `ERR_WIFI_FAIL` | WiFi subsystem error |
 | `0x04` | `ERR_SCAN_ACTIVE` | Scan already active (stop first) |
-
-#### `0x83` — Promiscuous Status
-
-Reports whether promiscuous mode is enabled.
-
-| Payload | Size | Description |
-|---------|------|-------------|
-| enabled | 1 byte | `1` = on, `0` = off |
 
 ### Events (Device → Client)
 
@@ -180,17 +127,3 @@ offset  size  type    field        description
 The firmware increments `seq_num` for each frame it sends. Gaps in the sequence indicate dropped frames (due to full buffers or TX queue pressure). The counter is 16-bit and wraps around.
 
 **Raw frame data** (`frame_len` bytes) follows the metadata. This is the raw 802.11 frame as captured by the radio.
-
-### COBS Framing
-
-All messages are encoded with [Consistent Overhead Byte Stuffing (COBS)](https://en.wikipedia.org/wiki/Consistent_Overhead_Byte_Stuffing) before transmission. COBS eliminates `0x00` bytes from the encoded output, allowing `0x00` to be used as an unambiguous message delimiter.
-
-To send a message:
-1. Build the raw message (4-byte header + payload)
-2. COBS-encode the raw message
-3. Transmit: `0x00` + encoded bytes + `0x00`
-
-To receive a message:
-1. Accumulate bytes until a `0x00` delimiter
-2. COBS-decode the bytes between delimiters
-3. Parse the 4-byte header and payload from the decoded result
