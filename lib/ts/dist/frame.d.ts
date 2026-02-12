@@ -1,0 +1,50 @@
+/** 802.11 frame class with lazy parsing of header fields and IEs. */
+export declare const META_SIZE = 16;
+export declare const FRAME_TYPE_MGMT = 0;
+export declare const FRAME_TYPE_CTRL = 1;
+export declare const FRAME_TYPE_DATA = 2;
+export declare const SUBTYPE_ASSOC_REQ = 0;
+export declare const SUBTYPE_ASSOC_RESP = 1;
+export declare const SUBTYPE_PROBE_REQ = 4;
+export declare const SUBTYPE_PROBE_RESP = 5;
+export declare const SUBTYPE_BEACON = 8;
+export declare const SUBTYPE_DEAUTH = 12;
+export declare class Frame {
+    readonly timestampUs: number;
+    readonly frameLen: number;
+    readonly channel: number;
+    readonly rssi: number;
+    readonly noiseFloor: number;
+    readonly pktType: number;
+    readonly rxState: number;
+    readonly rate: number;
+    readonly seqNum: number;
+    readonly raw: Uint8Array;
+    private _cache;
+    constructor(meta: Uint8Array, raw: Uint8Array);
+    private _lazy;
+    get frameControl(): number;
+    get frameType(): number;
+    get frameSubtype(): number;
+    get toDs(): boolean;
+    get fromDs(): boolean;
+    get duration(): number;
+    get addr1(): Uint8Array | null;
+    get addr2(): Uint8Array | null;
+    get addr3(): Uint8Array | null;
+    get sequenceControl(): number | null;
+    get sequenceNumber(): number | null;
+    get fragmentNumber(): number | null;
+    get bssid(): Uint8Array | null;
+    get src(): Uint8Array | null;
+    get dst(): Uint8Array | null;
+    private get _ieOffset();
+    iterIes(): Generator<[number, Uint8Array]>;
+    get ssid(): string | null;
+    get isBeacon(): boolean;
+    get isProbeReq(): boolean;
+    get isProbeResp(): boolean;
+    static macStr(addr: Uint8Array | null): string;
+    toString(): string;
+}
+//# sourceMappingURL=frame.d.ts.map
