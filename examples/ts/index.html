@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>sniffy TS example</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: "SF Mono", Monaco, Consolas, monospace;
+        font-size: 0.9rem;
+        background: #0d1117;
+        color: #c9d1d9;
+        padding: 1.5rem;
+      }
+      h1 {
+        font-size: 1.25rem;
+        margin-bottom: 1rem;
+      }
+      .toolbar {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+      }
+      button {
+        font-family: "SF Mono", Monaco, Consolas, monospace;
+        font-size: 0.75rem;
+        padding: 0.4rem 0.8rem;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        background: #21262d;
+        color: #c9d1d9;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #30363d;
+      }
+      button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      button.primary {
+        background: #238636;
+        border-color: #238636;
+        color: #fff;
+      }
+      button.primary:hover {
+        background: #2ea043;
+      }
+      button.danger {
+        background: #da3633;
+        border-color: #da3633;
+        color: #fff;
+      }
+      button.danger:hover {
+        background: #f85149;
+      }
+      select,
+      input[type="number"] {
+        padding: 0.4rem 0.5rem;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        background: #161b22;
+        color: #c9d1d9;
+      }
+      input[type="number"] {
+        width: 4rem;
+      }
+      .stats {
+        font-size: 0.7rem;
+        color: #8b949e;
+        margin-bottom: 0.75rem;
+      }
+      .stats span {
+        color: #c9d1d9;
+        font-weight: 600;
+      }
+      #log {
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        padding: 0.75rem;
+        height: 70vh;
+        overflow-y: auto;
+        font-family: "SF Mono", Monaco, Consolas, monospace;
+        font-size: 0.7rem;
+        line-height: 1.5;
+      }
+      .log-line {
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      .log-info {
+        color: #58a6ff;
+      }
+      .log-error {
+        color: #f85149;
+      }
+      .log-frame {
+        color: #7ee787;
+      }
+      .log-beacon {
+        color: #d2a8ff;
+      }
+      .log-probe {
+        color: #ffa657;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>sniffy-web</h1>
+
+    <div class="toolbar">
+      <button id="btn-connect" class="primary">Connect</button>
+      <button id="btn-disconnect" class="danger" disabled>Disconnect</button>
+      <button id="btn-scan" disabled>Scan All</button>
+      <label>
+        Ch:
+        <input id="input-channel" type="number" min="1" max="14" value="6" />
+      </label>
+      <button id="btn-scan-ch" disabled>Scan Channel</button>
+      <button id="btn-stop" disabled>Stop</button>
+      <button id="btn-promisc-on" disabled>Promisc On</button>
+      <button id="btn-promisc-off" disabled>Promisc Off</button>
+      <button id="btn-promisc-status" disabled>Promisc?</button>
+      <button id="btn-clear">Clear Log</button>
+    </div>
+
+    <div class="stats">
+      Frames: <span id="stat-frames">0</span> &nbsp;|&nbsp; Dropped:
+      <span id="stat-dropped">0</span> &nbsp;|&nbsp; Status:
+      <span id="stat-status">disconnected</span>
+    </div>
+
+    <div id="log"></div>
+
+    <script type="module">
+      import { SnifferClient, Frame } from "../../lib/ts/dist/index.js";
+
+      const $ = (sel) => document.querySelector(sel);
+      const log = $("#log");
+      const MAX_LOG_LINES = 2000;
+      let lineCount = 0;
+
+      function appendLog(text, cls = "") {
+        const el = document.createElement("div");
+        el.className = "log-line " + cls;
+        el.textContent = text;
+        log.appendChild(el);
+        lineCount++;
+        // trim old lines
+        while (lineCount > MAX_LOG_LINES) {
+          log.removeChild(log.firstChild);
+          lineCount--;
+        }
+        log.scrollTop = log.scrollHeight;
+      }
+
+      function logInfo(msg) {
+        appendLog(msg, "log-info");
+      }
+      function logError(msg) {
+        appendLog(msg, "log-error");
+      }
+
+      function updateStats() {
+        $("#stat-frames").textContent = client.frameCount;
+        $("#stat-dropped").textContent = client.dropped;
+      }
+
+      function setConnected(connected) {
+        $("#btn-connect").disabled = connected;
+        $("#btn-disconnect").disabled = !connected;
+        for (const id of [
+          "#btn-scan",
+          "#btn-scan-ch",
+          "#btn-stop",
+          "#btn-promisc-on",
+          "#btn-promisc-off",
+          "#btn-promisc-status",
+        ]) {
+          $(id).disabled = !connected;
+        }
+        $("#stat-status").textContent = connected
+          ? "connected"
+          : "disconnected";
+      }
+
+      const client = new SnifferClient({
+        onFrame(frame) {
+          let cls = "log-frame";
+          if (frame.isBeacon) cls = "log-beacon";
+          else if (frame.isProbeReq || frame.isProbeResp) cls = "log-probe";
+          appendLog(frame.toString(), cls);
+          updateStats();
+        },
+        onDisconnect() {
+          logError("Device disconnected unexpectedly");
+          setConnected(false);
+        },
+      });
+
+      $("#btn-connect").addEventListener("click", async () => {
+        try {
+          logInfo("Requesting serial port...");
+          await client.connect();
+          setConnected(true);
+          logInfo("Connected");
+        } catch (e) {
+          logError("Connect failed: " + e.message);
+        }
+      });
+
+      $("#btn-disconnect").addEventListener("click", async () => {
+        try {
+          await client.disconnect();
+          setConnected(false);
+          logInfo("Disconnected");
+        } catch (e) {
+          logError("Disconnect failed: " + e.message);
+        }
+      });
+
+      $("#btn-scan").addEventListener("click", async () => {
+        try {
+          await client.scan();
+          logInfo("Scanning all channels...");
+        } catch (e) {
+          logError("Scan failed: " + e.message);
+        }
+      });
+
+      $("#btn-scan-ch").addEventListener("click", async () => {
+        const ch = parseInt($("#input-channel").value, 10);
+        try {
+          await client.scan(ch);
+          logInfo(`Scanning channel ${ch}...`);
+        } catch (e) {
+          logError("Scan failed: " + e.message);
+        }
+      });
+
+      $("#btn-stop").addEventListener("click", async () => {
+        try {
+          await client.stop();
+          logInfo("Scan stopped");
+          updateStats();
+          logInfo(
+            `Total frames: ${client.frameCount}, dropped: ${client.dropped}`
+          );
+        } catch (e) {
+          logError("Stop failed: " + e.message);
+        }
+      });
+
+      $("#btn-promisc-on").addEventListener("click", async () => {
+        try {
+          await client.promiscOn();
+          logInfo("Promiscuous mode enabled");
+        } catch (e) {
+          logError("Promisc on failed: " + e.message);
+        }
+      });
+
+      $("#btn-promisc-off").addEventListener("click", async () => {
+        try {
+          await client.promiscOff();
+          logInfo("Promiscuous mode disabled");
+        } catch (e) {
+          logError("Promisc off failed: " + e.message);
+        }
+      });
+
+      $("#btn-promisc-status").addEventListener("click", async () => {
+        try {
+          const status = await client.promiscStatus();
+          logInfo(`Promiscuous mode: ${status ? "ON" : "OFF"}`);
+        } catch (e) {
+          logError("Promisc query failed: " + e.message);
+        }
+      });
+
+      $("#btn-clear").addEventListener("click", () => {
+        log.innerHTML = "";
+        lineCount = 0;
+      });
+    </script>
+  </body>
+</html>
