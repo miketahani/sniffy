@@ -111,18 +111,3 @@ Captured 802.11 frame with metadata. Metadata fields are unpacked eagerly; MAC h
 ### `SnifferError`
 
 Thrown when a command fails. Has `.cmd` and `.code` properties.
-
-## API Mapping (Python to TypeScript)
-
-| Python | TypeScript |
-|--------|------------|
-| `SnifferClient(port, on_frame=cb)` | `new SnifferClient({ onFrame: cb })` |
-| — | `await client.connect()` |
-| `client.scan(channel)` | `await client.scan(channel)` |
-| `client.stop()` | `await client.stop()` |
-| `client.promisc_on()` | `await client.promiscOn()` |
-| `client.promisc_off()` | `await client.promiscOff()` |
-| `client.promisc_status()` | `await client.promiscStatus()` |
-| `client.close()` | `await client.disconnect()` |
-| `client.frame_count` | `client.frameCount` |
-| `client.dropped` | `client.dropped` |
