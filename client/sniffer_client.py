@@ -2,6 +2,7 @@
 
 import struct
 import threading
+from queue import SimpleQueue
 from typing import Optional, Callable
 
 import serial
@@ -54,6 +55,7 @@ class SnifferClient:
     """
 
     TIMEOUT = 3.0  # seconds to wait for a command response
+    _SENTINEL = None  # poison pill for dispatch queue
 
     def __init__(
         self,
@@ -70,12 +72,16 @@ class SnifferClient:
         self._seq_expect = 0
         self._first_seq = True
 
+        self._frame_q: SimpleQueue[Optional[Frame]] = SimpleQueue()
+
         self._resp_event = threading.Event()
         self._resp_data: Optional[bytes] = None
         self._lock = threading.Lock()
         self._running = True
-        self._thread = threading.Thread(target=self._reader, daemon=True)
-        self._thread.start()
+        self._reader_thread = threading.Thread(target=self._reader, daemon=True)
+        self._dispatch_thread = threading.Thread(target=self._dispatcher, daemon=True)
+        self._reader_thread.start()
+        self._dispatch_thread.start()
 
     # ---- public API ----
 
@@ -102,9 +108,11 @@ class SnifferClient:
         return resp[0] != 0 if resp else False
 
     def close(self) -> None:
-        """Close the serial connection and stop the reader thread."""
+        """Close the serial connection and stop background threads."""
         self._running = False
-        self._thread.join(timeout=2.0)
+        self._frame_q.put(self._SENTINEL)
+        self._reader_thread.join(timeout=2.0)
+        self._dispatch_thread.join(timeout=2.0)
         self._ser.close()
 
     def __enter__(self):
@@ -143,8 +151,16 @@ class SnifferClient:
 
         return rpayload
 
+    def _dispatcher(self) -> None:
+        """Background thread: drain the frame queue and call on_frame."""
+        while True:
+            frame = self._frame_q.get()
+            if frame is self._SENTINEL:
+                break
+            self._on_frame(frame)
+
     def _reader(self) -> None:
-        """Background thread: read serial, COBS-decode, dispatch."""
+        """Background thread: read serial, COBS-decode, enqueue frames."""
         while self._running:
             try:
                 chunk = self._ser.read(4096)
@@ -214,4 +230,4 @@ class SnifferClient:
         self._seq_expect = (frame.seq_num + 1) & 0xFFFF
 
         self.frame_count += 1
-        self._on_frame(frame)
+        self._frame_q.put(frame)
