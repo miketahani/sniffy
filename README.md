@@ -1,12 +1,9 @@
-# Flock-Safety-Trap-Shooter-Sniffer-Alarm
-Custom firmware for the [M5NanoC6](ttps://shop.m5stack.com/products/m5stack-nanoc6-dev-kit) (ESP32-C6) that sniffs and then alerts you of nearby Flock Safety devices. Will be integrated into a all-inone tool releasing in the future for Flock Safety devices!
+# sniffy
+Forked and greatly expanded version of [Flock Safety Trap Shooter v0.3](https://github.com/GainSec/Flock-Safety-Trap-Shooter-Sniffer-Alarm) by [John Gaines](https://gainsec.com/). Includes a basic Python-based client library.
+
+Custom firmware for the [M5NanoC6](ttps://shop.m5stack.com/products/m5stack-nanoc6-dev-kit) (ESP32-C6) that sniffs and then alerts you of nearby Flock Safety devices.
 
 ![M5NanoC6](https://gainsec.com/wp-content/uploads/2025/06/nanoc6.jpg)
-
-## Version
-0.3
-
-![Flock Safety Trap Shooter](https://gainsec.com/wp-content/uploads/2025/06/image-47.png)
 
 ## Features
 
@@ -16,15 +13,118 @@ Sniffings Client Probes and Broadcast Beacons looking for 'flock' case insensiti
 
 ![SSID Alert](https://gainsec.com/wp-content/uploads/2025/06/image-48.png)
 
-## Coming Shortly
+## Setup & Installation
 
-* Installation Instructions
-* Flashes light when it gets a hit so you dont have to view UART
-* Sniff and filter for Flock Safety Devices based off BLE "MAC" or advertisement
+### Prerequisites
 
+- [ESP-IDF](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c6/get-started/) (v5.x)
+- Python 3.8+
+- An M5NanoC6 (or any ESP32-C6 board) connected via USB
 
-# Created by
-* **Jon Gaines**  - [GainSec](https://gainsec.com/)
+### Build & Flash
 
-# Acknowledgements 
-* dj1ch - [Github](https://github.com/dj1ch/esp32c6-sniffer)
+```bash
+# activate the ESP-IDF environment
+source ~/path/to/esp-idf/export.sh
+
+# set target (only needed once)
+idf.py set-target esp32c6
+
+# build
+idf.py build
+
+# flash (replace PORT with your device, e.g. /dev/ttyACM0 or /dev/cu.usbmodem*)
+idf.py -p PORT flash
+
+# optional: monitor raw serial output for debugging
+idf.py -p PORT monitor
+```
+
+### Python Client Library
+
+The `client/` directory contains a Python library for controlling the sniffer over USB serial.
+
+```bash
+# install pyserial
+pip install pyserial
+
+# or install from the requirements file
+pip install -r client/requirements.txt
+```
+
+#### Quick Start
+
+```python
+from client import SnifferClient
+
+with SnifferClient("/dev/ttyACM0") as s:
+    # start scanning all channels
+    s.scan()
+
+    # or scan a specific channel
+    s.scan(channel=6)
+
+    # stop scanning
+    s.stop()
+
+    # check promiscuous mode
+    print(s.promisc_status())  # True / False
+
+    # enable/disable promiscuous mode directly
+    s.promisc_on()
+    s.promisc_off()
+
+    # captured frames are collected in s.frames
+    for frame in s.frames:
+        print(frame)
+        print(f"  SSID: {frame.ssid}, RSSI: {frame.rssi}, Channel: {frame.channel}")
+```
+
+#### Captured Frame Fields
+
+Each `Frame` object provides lazy-parsed 802.11 fields:
+
+| Field | Description |
+|-------|-------------|
+| `channel` | Channel the frame was captured on |
+| `rssi` | Signal strength (dBm) |
+| `noise_floor` | Noise floor (dBm) |
+| `timestamp_us` | Capture timestamp (microseconds) |
+| `ssid` | SSID (from beacons/probes, `None` otherwise) |
+| `src` / `dst` / `bssid` | MAC addresses (bytes) |
+| `frame_type` / `frame_subtype` | 802.11 type/subtype |
+| `is_beacon` / `is_probe_req` / `is_probe_resp` | Convenience booleans |
+| `raw` | Raw 802.11 frame bytes |
+
+Use `Frame.mac_str(frame.src)` to format a MAC address as `"aa:bb:cc:dd:ee:ff"`.
+
+#### Real-Time Frame Callback
+
+```python
+def on_frame(frame):
+    if frame.ssid and "flock" in frame.ssid.lower():
+        print(f"ALERT: {frame.ssid} on ch {frame.channel} from {Frame.mac_str(frame.src)}")
+
+with SnifferClient("/dev/ttyACM0", on_frame=on_frame) as s:
+    s.scan()
+    time.sleep(60)
+    s.stop()
+```
+
+See `client/example.py` for a full working example.
+
+#### CLI
+
+The client also includes a command-line interface. Run it with `python -m client`:
+
+| Command | Description |
+|---------|-------------|
+| `python -m client /dev/ttyACM0 scan` | Scan all channels, print frames live (Ctrl+C to stop) |
+| `python -m client /dev/ttyACM0 scan -c 6` | Scan only channel 6 |
+| `python -m client /dev/ttyACM0 stop` | Stop scanning |
+| `python -m client /dev/ttyACM0 status` | Show whether promiscuous mode is on or off |
+| `python -m client /dev/ttyACM0 promisc` | Query promiscuous mode status |
+| `python -m client /dev/ttyACM0 promisc on` | Enable promiscuous mode |
+| `python -m client /dev/ttyACM0 promisc off` | Disable promiscuous mode |
+
+The `scan` command streams captured frames to the terminal with human-readable output (channel, RSSI, frame type, MACs, SSID). Lines containing "flock" are highlighted in red.
