@@ -51,21 +51,21 @@ idf.py -p PORT monitor
 
 ### Python Client Library
 
-The `client/` directory contains a Python library for controlling the sniffer over USB serial.
+The `lib/` directory contains a Python library for controlling the sniffer over USB serial.
 
 ```bash
 # install pyserial
 pip install pyserial
 
 # or install from the requirements file
-pip install -r client/requirements.txt
+pip install -r lib/requirements.txt
 ```
 
 #### Quick Start
 
 ```python
 import threading
-from client import SnifferClient
+from lib import SnifferClient
 
 def on_frame(frame):
     print(frame)
@@ -116,7 +116,7 @@ Use `Frame.mac_str(frame.src)` to format a MAC address as `"aa:bb:cc:dd:ee:ff"`.
 
 ```python
 import threading
-from client import SnifferClient, Frame
+from lib import SnifferClient, Frame
 
 done = threading.Event()
 
@@ -131,20 +131,20 @@ with SnifferClient("/dev/ttyACM0", on_frame=on_frame) as s:
     s.stop()
 ```
 
-See `client/example.py` for a full working example.
+See `lib/example.py` for a full working example.
 
 #### CLI
 
-The client also includes a command-line interface. Run it with `python -m client`:
+The client also includes a command-line interface. Run it with `python -m lib`:
 
 | Command | Description |
 |---------|-------------|
-| `python -m client /dev/ttyACM0 scan` | Scan all channels, print frames live (Ctrl+C to stop) |
-| `python -m client /dev/ttyACM0 scan -c 6` | Scan only channel 6 |
-| `python -m client /dev/ttyACM0 stop` | Stop scanning |
-| `python -m client /dev/ttyACM0 status` | Show whether promiscuous mode is on or off |
-| `python -m client /dev/ttyACM0 promisc` | Query promiscuous mode status |
-| `python -m client /dev/ttyACM0 promisc on` | Enable promiscuous mode |
-| `python -m client /dev/ttyACM0 promisc off` | Disable promiscuous mode |
+| `python -m lib /dev/ttyACM0 scan` | Scan all channels, print frames live (Ctrl+C to stop) |
+| `python -m lib /dev/ttyACM0 scan -c 6` | Scan only channel 6 |
+| `python -m lib /dev/ttyACM0 stop` | Stop scanning |
+| `python -m lib /dev/ttyACM0 status` | Show whether promiscuous mode is on or off |
+| `python -m lib /dev/ttyACM0 promisc` | Query promiscuous mode status |
+| `python -m lib /dev/ttyACM0 promisc on` | Enable promiscuous mode |
+| `python -m lib /dev/ttyACM0 promisc off` | Disable promiscuous mode |
 
 The `scan` command streams captured frames to the terminal with human-readable output (channel, RSSI, frame type, MACs, SSID). Lines containing "flock" are highlighted in red.

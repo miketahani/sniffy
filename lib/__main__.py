@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""CLI for the Flock Safety sniffer."""
+
 import argparse
 import signal
 import sys
@@ -100,16 +102,8 @@ def cmd_promisc(client: SnifferClient, args: argparse.Namespace) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        prog="python -m client",
+        prog="python -m lib",
         description="Flock Safety sniffer CLI",
-        usage="""python -m client <port> <command> [options]
-        python -m client /dev/ttyACM0 scan
-        python -m client /dev/ttyACM0 scan --channel 6
-        python -m client /dev/ttyACM0 stop
-        python -m client /dev/ttyACM0 status
-        python -m client /dev/ttyACM0 promisc on
-        python -m client /dev/ttyACM0 promisc off
-        python -m client /dev/ttyACM0 promisc""",
     )
     parser.add_argument("port", help="Serial port (e.g. /dev/ttyACM0, COM3)")
     parser.add_argument(

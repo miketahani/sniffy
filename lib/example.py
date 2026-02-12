@@ -3,7 +3,7 @@
 
 import sys
 import threading
-from client import SnifferClient
+from lib import SnifferClient
 
 PORT = sys.argv[1] if len(sys.argv) > 1 else "/dev/ttyACM0"
 

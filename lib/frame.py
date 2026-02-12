@@ -30,16 +30,31 @@ class Frame:
     """
 
     __slots__ = (
-        "_ts", "_frame_len", "_channel", "_rssi", "_noise_floor",
-        "_pkt_type", "_rx_state", "_rate", "_seq_num", "_raw",
+        "_ts",
+        "_frame_len",
+        "_channel",
+        "_rssi",
+        "_noise_floor",
+        "_pkt_type",
+        "_rx_state",
+        "_rate",
+        "_seq_num",
+        "_raw",
         "__dict__",  # needed for cached_property
     )
 
     def __init__(self, meta: bytes, raw: bytes):
         (
-            self._ts, self._frame_len, self._channel, self._rssi,
-            self._noise_floor, self._pkt_type, self._rx_state,
-            self._rate, self._seq_num, _,
+            self._ts,
+            self._frame_len,
+            self._channel,
+            self._rssi,
+            self._noise_floor,
+            self._pkt_type,
+            self._rx_state,
+            self._rate,
+            self._seq_num,
+            _,
         ) = struct.unpack_from(META_FMT, meta)
         self._raw = raw
 
@@ -233,15 +248,23 @@ class Frame:
 
     @cached_property
     def is_beacon(self) -> bool:
-        return self.frame_type == FRAME_TYPE_MGMT and self.frame_subtype == SUBTYPE_BEACON
+        return (
+            self.frame_type == FRAME_TYPE_MGMT and self.frame_subtype == SUBTYPE_BEACON
+        )
 
     @cached_property
     def is_probe_req(self) -> bool:
-        return self.frame_type == FRAME_TYPE_MGMT and self.frame_subtype == SUBTYPE_PROBE_REQ
+        return (
+            self.frame_type == FRAME_TYPE_MGMT
+            and self.frame_subtype == SUBTYPE_PROBE_REQ
+        )
 
     @cached_property
     def is_probe_resp(self) -> bool:
-        return self.frame_type == FRAME_TYPE_MGMT and self.frame_subtype == SUBTYPE_PROBE_RESP
+        return (
+            self.frame_type == FRAME_TYPE_MGMT
+            and self.frame_subtype == SUBTYPE_PROBE_RESP
+        )
 
     @staticmethod
     def mac_str(addr: Optional[bytes]) -> str:
