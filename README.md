@@ -24,8 +24,17 @@ Sniffings Client Probes and Broadcast Beacons looking for 'flock' case insensiti
 ### Build & Flash
 
 ```bash
+# install ESP-IDF (one-time setup); replace `~/esp` with any desired path
+
+mkdir -p ~/esp && cd ~/esp
+git clone --recursive https://github.com/espressif/esp-idf.git
+cd esp-idf
+./install.sh esp32c6
+```
+
+```bash
 # activate the ESP-IDF environment
-source ~/path/to/esp-idf/export.sh
+source ~/esp/esp-idf/export.sh
 
 # set target (only needed once)
 idf.py set-target esp32c6
