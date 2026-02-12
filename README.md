@@ -1,7 +1,9 @@
 # sniffy
-Forked and greatly expanded version of [Flock Safety Trap Shooter v0.3](https://github.com/GainSec/Flock-Safety-Trap-Shooter-Sniffer-Alarm) by [John Gaines](https://gainsec.com/). Includes a basic Python-based client library.
+Forked and greatly expanded version of [Flock Safety Trap Shooter v0.3](https://github.com/GainSec/Flock-Safety-Trap-Shooter-Sniffer-Alarm) by [John Gaines](https://gainsec.com/).
 
 Custom firmware for the [M5NanoC6](ttps://shop.m5stack.com/products/m5stack-nanoc6-dev-kit) (ESP32-C6) that sniffs and then alerts you of nearby Flock Safety devices.
+
+Includes client libraries for [Python](lib/py/) and [TypeScript](lib/ts/) (Web Serial).
 
 ## Setup & Installation
 
@@ -39,102 +41,156 @@ idf.py -p PORT flash
 idf.py -p PORT monitor
 ```
 
-### Python Client Library
+## Client Libraries
 
-The `lib/py/` directory contains a Python library for controlling the sniffer over USB serial.
+| Library | Path | Description |
+|---------|------|-------------|
+| [Python](lib/py/) | `lib/py/` | USB serial client via `pyserial` |
+| [TypeScript](lib/ts/) | `lib/ts/` | Browser client via Web Serial API |
 
-```bash
-# install pyserial
-pip install pyserial
+See each library's README for installation, API docs, and usage examples.
 
-# or install from the requirements file
-pip install -r lib/py/requirements.txt
+## Serial Protocol
+
+The device communicates over USB Serial CDC-ACM (115200 baud). Messages are binary, COBS-encoded, and delimited by `0x00` bytes.
+
+### Message Format
+
+Every message (command, response, or event) starts with a 4-byte header:
+
+```
+offset  size  field        description
+0       1     msg_type     message type (see tables below)
+1       1     flags        status flags
+2       2     payload_len  payload length (little-endian)
 ```
 
-#### Quick Start
+Followed by `payload_len` bytes of type-specific payload. The entire header+payload is then COBS-encoded and wrapped in `0x00` delimiters before being sent over the wire:
 
-```python
-import threading
-from lib.py import SnifferClient
-
-def on_frame(frame):
-    print(frame)
-    print(f"  SSID: {frame.ssid}, RSSI: {frame.rssi}, Channel: {frame.channel}")
-
-with SnifferClient("/dev/ttyACM0", on_frame=on_frame) as s:
-    # start scanning all channels
-    s.scan()
-
-    # or scan a specific channel
-    s.scan(channel=6)
-
-    # block until you're ready to stop
-    threading.Event().wait(timeout=60)
-
-    # stop scanning
-    s.stop()
-
-    # check promiscuous mode
-    print(s.promisc_status())  # True / False
-
-    # enable/disable promiscuous mode directly
-    s.promisc_on()
-    s.promisc_off()
-
-    print(f"Frames: {s.frame_count}, Dropped: ~{s.dropped}")
+```
+0x00 <COBS-encoded header+payload> 0x00
 ```
 
-#### Captured Frame Fields
+### Commands (Client → Device)
 
-Each `Frame` object provides lazy-parsed 802.11 fields:
+#### `0x01` — Scan Start
 
-| Field | Description |
-|-------|-------------|
-| `channel` | Channel the frame was captured on |
-| `rssi` | Signal strength (dBm) |
-| `noise_floor` | Noise floor (dBm) |
-| `timestamp_us` | Capture timestamp (microseconds) |
-| `ssid` | SSID (from beacons/probes, `None` otherwise) |
-| `src` / `dst` / `bssid` | MAC addresses (bytes) |
-| `frame_type` / `frame_subtype` | 802.11 type/subtype |
-| `is_beacon` / `is_probe_req` / `is_probe_resp` | Convenience booleans |
-| `raw` | Raw 802.11 frame bytes |
+Start WiFi scanning.
 
-Use `Frame.mac_str(frame.src)` to format a MAC address as `"aa:bb:cc:dd:ee:ff"`.
+| Payload | Size | Description |
+|---------|------|-------------|
+| channel | 1 byte | Channel to scan. `0` = cycle through all channels. |
 
-#### Flock Detection Example
+Valid channels: 1–13 (2.4 GHz), 36, 40, 44, 48, 149, 153, 157, 161, 165 (5 GHz).
 
-```python
-import threading
-from lib.py import SnifferClient, Frame
+In all-channel mode the firmware dwells ~2.5 seconds per channel.
 
-done = threading.Event()
+**Response:** ACK (`0x81`)
 
-def on_frame(frame):
-    if frame.ssid and "flock" in frame.ssid.lower():
-        print(f"ALERT: {frame.ssid} on ch {frame.channel} from {Frame.mac_str(frame.src)}")
-        done.set()
+#### `0x02` — Scan Stop
 
-with SnifferClient("/dev/ttyACM0", on_frame=on_frame) as s:
-    s.scan()
-    done.wait()
-    s.stop()
+Stop WiFi scanning.
+
+**Payload:** none
+
+**Response:** ACK (`0x81`)
+
+#### `0x03` — Promiscuous Mode On
+
+Enable promiscuous mode.
+
+**Payload:** none
+
+**Response:** ACK (`0x81`)
+
+#### `0x04` — Promiscuous Mode Off
+
+Disable promiscuous mode.
+
+**Payload:** none
+
+**Response:** ACK (`0x81`)
+
+#### `0x05` — Promiscuous Mode Query
+
+Query whether promiscuous mode is active.
+
+**Payload:** none
+
+**Response:** Promiscuous Status (`0x83`)
+
+### Responses (Device → Client)
+
+#### `0x81` — ACK
+
+Acknowledges a command was processed successfully.
+
+| Payload | Size | Description |
+|---------|------|-------------|
+| cmd_type | 1 byte | The command type that was acknowledged |
+
+#### `0x82` — Error
+
+A command failed.
+
+| Payload | Size | Description |
+|---------|------|-------------|
+| cmd_type | 1 byte | The command type that failed |
+| error_code | 1 byte | Error code (see below) |
+
+**Error Codes:**
+
+| Code | Name | Description |
+|------|------|-------------|
+| `0x01` | `ERR_UNKNOWN_CMD` | Unknown command type |
+| `0x02` | `ERR_INVALID_CHANNEL` | Invalid WiFi channel number |
+| `0x03` | `ERR_WIFI_FAIL` | WiFi subsystem error |
+| `0x04` | `ERR_SCAN_ACTIVE` | Scan already active (stop first) |
+
+#### `0x83` — Promiscuous Status
+
+Reports whether promiscuous mode is enabled.
+
+| Payload | Size | Description |
+|---------|------|-------------|
+| enabled | 1 byte | `1` = on, `0` = off |
+
+### Events (Device → Client)
+
+#### `0xC0` — Frame
+
+An asynchronous event sent for each captured WiFi frame. The payload is a 16-byte metadata header followed by the raw 802.11 frame bytes.
+
+**Metadata (16 bytes, little-endian):**
+
+```
+offset  size  type    field        description
+0       4     u32     timestamp    capture time (microseconds)
+4       2     u16     frame_len    length of raw frame data
+6       1     u8      channel      WiFi channel
+7       1     i8      rssi         signal strength (dBm)
+8       1     i8      noise_floor  noise floor (dBm)
+9       1     u8      pkt_type     WiFi packet type
+10      1     u8      rx_state     receiver state
+11      1     u8      rate         data rate
+12      2     u16     seq_num      sequence number (for drop detection)
+14      2     u16     reserved     (unused)
 ```
 
-See `examples/py/example.py` for a full working example.
+The firmware increments `seq_num` for each frame it sends. Gaps in the sequence indicate dropped frames (due to full buffers or TX queue pressure). The counter is 16-bit and wraps around.
 
-#### CLI
+**Raw frame data** (`frame_len` bytes) follows the metadata. This is the raw 802.11 frame as captured by the radio.
 
-The client also includes a command-line interface. Run it with `python -m lib.py`:
+### COBS Framing
 
-| Command | Description |
-|---------|-------------|
-| `python -m lib.py /dev/ttyACM0 scan` | Scan all channels, print frames live (Ctrl+C to stop) |
-| `python -m lib.py /dev/ttyACM0 scan -c 6` | Scan only channel 6 |
-| `python -m lib.py /dev/ttyACM0 stop` | Stop scanning |
-| `python -m lib.py /dev/ttyACM0 status` | Show whether promiscuous mode is on or off |
-| `python -m lib.py /dev/ttyACM0 promisc` | Query promiscuous mode status |
-| `python -m lib.py /dev/ttyACM0 promisc on` | Enable promiscuous mode |
-| `python -m lib.py /dev/ttyACM0 promisc off` | Disable promiscuous mode |
+All messages are encoded with [Consistent Overhead Byte Stuffing (COBS)](https://en.wikipedia.org/wiki/Consistent_Overhead_Byte_Stuffing) before transmission. COBS eliminates `0x00` bytes from the encoded output, allowing `0x00` to be used as an unambiguous message delimiter.
 
-The `scan` command streams captured frames to the terminal with human-readable output (channel, RSSI, frame type, MACs, SSID). Lines containing "flock" are highlighted in red.
+To send a message:
+1. Build the raw message (4-byte header + payload)
+2. COBS-encode the raw message
+3. Transmit: `0x00` + encoded bytes + `0x00`
+
+To receive a message:
+1. Accumulate bytes until a `0x00` delimiter
+2. COBS-decode the bytes between delimiters
+3. Parse the 4-byte header and payload from the decoded result
