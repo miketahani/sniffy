@@ -1,5 +1,5 @@
 {
-  "name": "sniffy-web",
+  "name": "sniffy",
   "version": "0.1.0",
   "description": "Web Serial client for ESP32 WiFi sniffer",
   "type": "module",
@@ -11,7 +11,9 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch"
