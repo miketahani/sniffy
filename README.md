@@ -55,14 +55,22 @@ pip install -r client/requirements.txt
 #### Quick Start
 
 ```python
+import threading
 from client import SnifferClient
 
-with SnifferClient("/dev/ttyACM0") as s:
+def on_frame(frame):
+    print(frame)
+    print(f"  SSID: {frame.ssid}, RSSI: {frame.rssi}, Channel: {frame.channel}")
+
+with SnifferClient("/dev/ttyACM0", on_frame=on_frame) as s:
     # start scanning all channels
     s.scan()
 
     # or scan a specific channel
     s.scan(channel=6)
+
+    # block until you're ready to stop
+    threading.Event().wait(timeout=60)
 
     # stop scanning
     s.stop()
@@ -74,10 +82,7 @@ with SnifferClient("/dev/ttyACM0") as s:
     s.promisc_on()
     s.promisc_off()
 
-    # captured frames are collected in s.frames
-    for frame in s.frames:
-        print(frame)
-        print(f"  SSID: {frame.ssid}, RSSI: {frame.rssi}, Channel: {frame.channel}")
+    print(f"Frames: {s.frame_count}, Dropped: ~{s.dropped}")
 ```
 
 #### Captured Frame Fields
@@ -98,16 +103,22 @@ Each `Frame` object provides lazy-parsed 802.11 fields:
 
 Use `Frame.mac_str(frame.src)` to format a MAC address as `"aa:bb:cc:dd:ee:ff"`.
 
-#### Real-Time Frame Callback
+#### Flock Detection Example
 
 ```python
+import threading
+from client import SnifferClient, Frame
+
+done = threading.Event()
+
 def on_frame(frame):
     if frame.ssid and "flock" in frame.ssid.lower():
         print(f"ALERT: {frame.ssid} on ch {frame.channel} from {Frame.mac_str(frame.src)}")
+        done.set()
 
 with SnifferClient("/dev/ttyACM0", on_frame=on_frame) as s:
     s.scan()
-    time.sleep(60)
+    done.wait()
     s.stop()
 ```
 
