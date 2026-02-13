@@ -10,6 +10,7 @@
 volatile bool     scanning        = false;
 volatile bool     promisc_on      = false;
 volatile int      scan_channel    = -1;   /* -1 = all channels */
+volatile uint8_t  scan_filter     = 0;    /* 0 = all frame types */
 TaskHandle_t      scan_task_handle = NULL;
 
 /* -------- channel table -------- */

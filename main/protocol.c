@@ -180,23 +180,31 @@ static void handle_command(const uint8_t *data, size_t len)
     switch (hdr.msg_type) {
 
     case MSG_CMD_SCAN_START: {
-        if (plen < 1) {
+        if (plen < 2) {
             proto_send_error(hdr.msg_type, ERR_INVALID_CHANNEL);
             return;
         }
         uint8_t ch = payload[0];
+        uint8_t filt_byte = payload[1];
         if (ch != 0 && !is_valid_channel(ch)) {
             proto_send_error(hdr.msg_type, ERR_INVALID_CHANNEL);
             return;
         }
+        if (filt_byte & ~0x07) {
+            proto_send_error(hdr.msg_type, ERR_INVALID_FILTER);
+            return;
+        }
         scan_channel = (ch == 0) ? -1 : (int)ch;
+        scan_filter = filt_byte;
+        /* 0x00 = all frame types */
+        uint32_t mask = filt_byte ? (uint32_t)filt_byte
+                                  : (WIFI_PROMIS_FILTER_MASK_MGMT |
+                                     WIFI_PROMIS_FILTER_MASK_CTRL |
+                                     WIFI_PROMIS_FILTER_MASK_DATA);
         scanning = true;
-        /* ensure promiscuous mode is on (after scanning=true so callback sees it) */
+        wifi_promiscuous_filter_t filt = { .filter_mask = mask };
+        esp_wifi_set_promiscuous_filter(&filt);
         if (!promisc_on) {
-            wifi_promiscuous_filter_t filt = {
-                .filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT
-            };
-            esp_wifi_set_promiscuous_filter(&filt);
             esp_wifi_set_promiscuous(true);
             promisc_on = true;
         }
@@ -216,9 +224,11 @@ static void handle_command(const uint8_t *data, size_t len)
         break;
 
     case MSG_CMD_PROMISC_ON: {
-        wifi_promiscuous_filter_t filt = {
-            .filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT
-        };
+        uint32_t mask = scan_filter ? (uint32_t)scan_filter
+                                    : (WIFI_PROMIS_FILTER_MASK_MGMT |
+                                       WIFI_PROMIS_FILTER_MASK_CTRL |
+                                       WIFI_PROMIS_FILTER_MASK_DATA);
+        wifi_promiscuous_filter_t filt = { .filter_mask = mask };
         esp_wifi_set_promiscuous_filter(&filt);
         esp_wifi_set_promiscuous(true);
         promisc_on = true;

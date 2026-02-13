@@ -33,6 +33,7 @@
 #define ERR_INVALID_CHANNEL     0x02
 #define ERR_WIFI_FAIL           0x03
 #define ERR_SCAN_ACTIVE         0x04
+#define ERR_INVALID_FILTER      0x05
 
 /* -------- frame size limits -------- */
 #define MAX_FRAME_LEN           2300
@@ -68,6 +69,7 @@ _Static_assert(sizeof(frame_meta_t) == 16, "frame_meta_t must be 16 bytes");
 extern volatile bool     scanning;
 extern volatile bool     promisc_on;
 extern volatile int      scan_channel;    /* -1 = all, >0 = specific */
+extern volatile uint8_t  scan_filter;     /* bitmask: 0x01=mgmt 0x02=ctrl 0x04=data, 0=all */
 extern TaskHandle_t      scan_task_handle;
 
 /* -------- protocol API -------- */
