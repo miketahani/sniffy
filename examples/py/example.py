@@ -3,7 +3,7 @@
 
 import sys
 import threading
-from lib.py import SnifferClient
+from lib.py import SnifferClient, FILTER_MGMT, FILTER_DATA
 
 PORT = sys.argv[1] if len(sys.argv) > 1 else "/dev/ttyACM0"
 
@@ -18,14 +18,14 @@ with SnifferClient(PORT, on_frame=on_frame) as s:
 
     done = threading.Event()
 
-    # start scanning all channels
-    print("Scanning all channels...")
+    # start scanning all channels (all frame types)
+    print("Scanning all channels (all frame types)...")
     s.scan()
     done.wait(timeout=15)
 
-    # switch to single channel
-    print("Switching to channel 6...")
-    s.scan(channel=6)
+    # switch to single channel with management + data frames only
+    print("Switching to channel 6 (mgmt + data frames)...")
+    s.scan(channel=6, frame_filter=FILTER_MGMT | FILTER_DATA)
     done.wait(timeout=10)
 
     # stop

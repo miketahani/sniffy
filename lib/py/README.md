@@ -1,4 +1,4 @@
-# sniffy
+# sniffy.py
 
 Python library for communicating with the ESP32-C6 WiFi sniffer firmware over USB serial.
 
@@ -15,18 +15,21 @@ pip install -r lib/py/requirements.txt
 
 ```python
 import threading
-from lib.py import SnifferClient
+from lib.py import SnifferClient, FILTER_MGMT, FILTER_DATA
 
 def on_frame(frame):
     print(frame)
     print(f"  SSID: {frame.ssid}, RSSI: {frame.rssi}, Channel: {frame.channel}")
 
 with SnifferClient("/dev/ttyACM0", on_frame=on_frame) as s:
-    # start scanning all channels
+    # start scanning all channels (all frame types)
     s.scan()
 
-    # or scan a specific channel
-    s.scan(channel=6)
+    # scan a specific channel with management frames only
+    s.scan(channel=6, frame_filter=FILTER_MGMT)
+
+    # scan with management + data frames
+    s.scan(channel=6, frame_filter=FILTER_MGMT | FILTER_DATA)
 
     # block until you're ready to stop
     threading.Event().wait(timeout=60)
@@ -85,7 +88,7 @@ Supports context manager (`with SnifferClient(...) as s:`).
 
 | Method | Description |
 |--------|-------------|
-| `scan(channel=None)` | Start scanning. Omit channel to cycle all channels. |
+| `scan(channel=None, frame_filter=0)` | Start scanning. Omit channel to cycle all channels. `frame_filter` is a bitmask of `FILTER_MGMT`, `FILTER_CTRL`, `FILTER_DATA` (0 = all). |
 | `stop()` | Stop scanning. |
 | `promisc_on()` | Enable promiscuous mode. |
 | `promisc_off()` | Disable promiscuous mode. |
@@ -98,6 +101,17 @@ Supports context manager (`with SnifferClient(...) as s:`).
 |----------|------|-------------|
 | `frame_count` | `int` | Total frames received |
 | `dropped` | `int` | Estimated dropped frames (via sequence number gaps) |
+
+### Filter Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `FILTER_ALL` | `0x00` | All frame types |
+| `FILTER_MGMT` | `0x01` | Management frames |
+| `FILTER_CTRL` | `0x02` | Control frames |
+| `FILTER_DATA` | `0x04` | Data frames |
+
+Combine with bitwise OR: `FILTER_MGMT | FILTER_DATA`.
 
 ### `Frame`
 
@@ -165,8 +179,10 @@ The library includes a command-line interface:
 
 | Command | Description |
 |---------|-------------|
-| `python -m lib.py PORT scan` | Scan all channels, print frames live (Ctrl+C to stop) |
+| `python -m lib.py PORT scan` | Scan all channels, all frame types (Ctrl+C to stop) |
 | `python -m lib.py PORT scan -c 6` | Scan only channel 6 |
+| `python -m lib.py PORT scan -f data` | Scan all channels, data frames only |
+| `python -m lib.py PORT scan -c 6 -f mgmt,data` | Scan channel 6, management + data frames |
 | `python -m lib.py PORT stop` | Stop scanning |
 | `python -m lib.py PORT status` | Show whether promiscuous mode is on or off |
 | `python -m lib.py PORT promisc` | Query promiscuous mode status |

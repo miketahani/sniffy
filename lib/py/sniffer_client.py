@@ -23,6 +23,12 @@ MSG_RSP_PROMISC_STATUS = 0x83
 
 MSG_EVT_FRAME = 0xC0
 
+# frame type filter bitmask (must match firmware)
+FILTER_ALL  = 0x00  # all frame types
+FILTER_MGMT = 0x01  # management frames
+FILTER_CTRL = 0x02  # control frames
+FILTER_DATA = 0x04  # data frames
+
 HDR_FMT = "<BBH"
 HDR_SIZE = struct.calcsize(HDR_FMT)  # 4
 
@@ -35,6 +41,7 @@ class SnifferError(Exception):
         0x02: "invalid channel",
         0x03: "wifi failure",
         0x04: "scan active (stop scan first)",
+        0x05: "invalid filter",
     }
 
     def __init__(self, cmd: int, code: int):
@@ -85,10 +92,17 @@ class SnifferClient:
 
     # ---- public API ----
 
-    def scan(self, channel: Optional[int] = None) -> None:
-        """Start scanning. If channel is None, cycle all channels."""
+    def scan(self, channel: Optional[int] = None, frame_filter: int = 0) -> None:
+        """Start scanning.
+
+        Args:
+            channel: WiFi channel to scan, or None to cycle all channels.
+            frame_filter: Bitmask of frame types to capture. Use FILTER_*
+                constants (e.g. ``FILTER_MGMT | FILTER_DATA``).
+                0 (FILTER_ALL) captures all frame types.
+        """
         ch = 0 if channel is None else channel
-        self._send_cmd(MSG_CMD_SCAN_START, struct.pack("<B", ch))
+        self._send_cmd(MSG_CMD_SCAN_START, struct.pack("<BB", ch, frame_filter))
 
     def stop(self) -> None:
         """Stop scanning."""

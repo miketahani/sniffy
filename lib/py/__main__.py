@@ -6,8 +6,14 @@ import signal
 import sys
 import threading
 
-from .sniffer_client import SnifferClient, SnifferError
+from .sniffer_client import SnifferClient, SnifferError, FILTER_MGMT, FILTER_CTRL, FILTER_DATA
 from .frame import Frame
+
+FILTER_NAMES = {
+    "mgmt": FILTER_MGMT,
+    "ctrl": FILTER_CTRL,
+    "data": FILTER_DATA,
+}
 
 # frame type/subtype names for human-readable output
 FRAME_TYPE_NAMES = {0: "Mgmt", 1: "Ctrl", 2: "Data", 3: "Misc"}
@@ -57,17 +63,40 @@ def print_frame(frame: Frame) -> None:
     print(line, flush=True)
 
 
+def parse_filter(value: str) -> int:
+    """Parse a comma-separated filter string into a bitmask."""
+    if value == "all":
+        return 0
+    mask = 0
+    for name in value.split(","):
+        name = name.strip().lower()
+        if name not in FILTER_NAMES:
+            raise argparse.ArgumentTypeError(
+                f"unknown filter {name!r} (choose from: all, mgmt, ctrl, data)"
+            )
+        mask |= FILTER_NAMES[name]
+    return mask
+
+
 def cmd_scan(client: SnifferClient, args: argparse.Namespace) -> None:
     channel = args.channel
+    filt = parse_filter(args.filter)
+    parts = []
     if channel:
-        print(f"Scanning channel {channel}... (Ctrl+C to stop)")
+        parts.append(f"channel {channel}")
     else:
-        print("Scanning all channels... (Ctrl+C to stop)")
+        parts.append("all channels")
+    if filt:
+        names = [n for n, v in FILTER_NAMES.items() if filt & v]
+        parts.append(f"filter={','.join(names)}")
+    else:
+        parts.append("filter=all")
+    print(f"Scanning {', '.join(parts)}... (Ctrl+C to stop)")
 
     done = threading.Event()
     signal.signal(signal.SIGINT, lambda *_: done.set())
 
-    client.scan(channel=channel)
+    client.scan(channel=channel, frame_filter=filt)
     done.wait()
 
     client.stop()
@@ -119,6 +148,13 @@ def main() -> int:
         type=int,
         default=None,
         help="Channel to scan (omit for all channels)",
+    )
+    p_scan.add_argument(
+        "-f",
+        "--filter",
+        type=str,
+        default="all",
+        help="Frame type filter: all, mgmt, ctrl, data (comma-separated, e.g. mgmt,data)",
     )
 
     sub.add_parser("stop", help="Stop scanning")
