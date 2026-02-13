@@ -3,7 +3,7 @@ Forked and greatly expanded version of [Flock Safety Trap Shooter v0.3](https://
 
 Custom firmware for the [M5NanoC6](ttps://shop.m5stack.com/products/m5stack-nanoc6-dev-kit) (ESP32-C6) that sniffs and then alerts you of nearby Flock Safety devices.
 
-Includes client libraries for [Python](lib/py/) and [TypeScript](lib/ts/) (Web Serial).
+Includes client libraries for [Python](lib/py/) (`pyserial`) and [TypeScript](lib/ts/) (Web Serial API).
 
 ## Setup & Installation
 
@@ -41,15 +41,6 @@ idf.py -p PORT flash
 idf.py -p PORT monitor
 ```
 
-## Client Libraries
-
-| Library | Path | Description |
-|---------|------|-------------|
-| [Python](lib/py/) | `lib/py/` | USB serial client via `pyserial` |
-| [TypeScript](lib/ts/) | `lib/ts/` | Browser client via Web Serial API |
-
-See each library's README for installation, API docs, and usage examples.
-
 ## Serial Protocol
 
 The device communicates over USB Serial CDC-ACM (115200 baud). Messages are COBS-encoded binary.
@@ -71,11 +62,29 @@ Followed by `payload_len` bytes of type-specific payload. The entire header+payl
 
 | Type | Name | Payload | Response | Description |
 |------|------|---------|----------|-------------|
-| `0x01` | Scan Start | 1 byte: channel (`0` = all) | ACK | Start WiFi scanning |
+| `0x01` | Scan Start | 2 bytes: channel + filter (see below) | ACK | Start WiFi scanning |
 | `0x02` | Scan Stop | — | ACK | Stop WiFi scanning |
 | `0x03` | Promisc On | — | ACK | Enable promiscuous mode |
 | `0x04` | Promisc Off | — | ACK | Disable promiscuous mode |
 | `0x05` | Promisc Query | — | Promisc Status | Query promiscuous mode state |
+
+#### Scan Start payload
+
+| Byte | Field | Values |
+|------|-------|--------|
+| 0 | channel | `0` = all channels, or a specific channel number |
+| 1 | frame_filter | Bitmask of frame types to capture (see below) |
+
+**Frame filter values:**
+
+| Value | Name | Description |
+|-------|------|-------------|
+| `0x00` | All | Capture all frame types (management + control + data) |
+| `0x01` | Management | Management frames (beacons, probes, auth, etc.) |
+| `0x02` | Control | Control frames (RTS, CTS, ACK, etc.) |
+| `0x04` | Data | Data frames (QoS data, null, EAPOL, etc.) |
+
+Values can be OR'd together (e.g. `0x05` = management + data).
 
 #### Valid channels
 
@@ -101,6 +110,7 @@ In all-channel mode the firmware dwells ~2.5 seconds per channel.
 | `0x02` | `ERR_INVALID_CHANNEL` | Invalid WiFi channel number |
 | `0x03` | `ERR_WIFI_FAIL` | WiFi subsystem error |
 | `0x04` | `ERR_SCAN_ACTIVE` | Scan already active (stop first) |
+| `0x05` | `ERR_INVALID_FILTER` | Invalid frame filter bitmask |
 
 ### Events (Device → Client)
 
