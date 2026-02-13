@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>sniffy TS example</title>
+    <title>sniffy web example</title>
     <style>
       *,
       *::before,
@@ -115,7 +115,7 @@
     </style>
   </head>
   <body>
-    <h1>sniffy-web</h1>
+    <h1>sniffy</h1>
 
     <div class="toolbar">
       <button id="btn-connect" class="primary">Connect</button>
@@ -243,7 +243,13 @@
       }
 
       function filterName(v) {
-        const names = { 0: "all", 1: "mgmt", 2: "ctrl", 4: "data", 5: "mgmt+data" };
+        const names = {
+          0: "all",
+          1: "mgmt",
+          2: "ctrl",
+          4: "data",
+          5: "mgmt+data",
+        };
         return names[v] ?? `0x${v.toString(16)}`;
       }
 
