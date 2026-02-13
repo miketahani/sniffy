@@ -18,11 +18,18 @@ const MSG_EVT_FRAME = 0xc0;
 
 const HDR_SIZE = 4; // <BBH: msg_type(1) + flags(1) + payload_len(2)
 
+// frame type filter bitmask (must match firmware)
+export const FILTER_ALL = 0x00; // all frame types
+export const FILTER_MGMT = 0x01; // management frames
+export const FILTER_CTRL = 0x02; // control frames
+export const FILTER_DATA = 0x04; // data frames
+
 const ERROR_NAMES: Record<number, string> = {
   0x01: "unknown command",
   0x02: "invalid channel",
   0x03: "wifi failure",
   0x04: "scan active (stop scan first)",
+  0x05: "invalid filter",
 };
 
 export class SnifferError extends Error {
@@ -104,8 +111,11 @@ export class SnifferClient {
     this._readLoop();
   }
 
-  async scan(channel: number = 0): Promise<void> {
-    await this._sendCmd(MSG_CMD_SCAN_START, new Uint8Array([channel]));
+  async scan(channel: number = 0, frameFilter: number = 0): Promise<void> {
+    await this._sendCmd(
+      MSG_CMD_SCAN_START,
+      new Uint8Array([channel, frameFilter])
+    );
   }
 
   async stop(): Promise<void> {

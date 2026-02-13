@@ -1,4 +1,11 @@
-export { SnifferClient, SnifferError } from "./client.js";
+export {
+  SnifferClient,
+  SnifferError,
+  FILTER_ALL,
+  FILTER_MGMT,
+  FILTER_CTRL,
+  FILTER_DATA,
+} from "./client.js";
 export type { SnifferClientOptions } from "./client.js";
 export { Frame, META_SIZE } from "./frame.js";
 export {

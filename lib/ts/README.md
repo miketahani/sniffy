@@ -1,4 +1,4 @@
-# sniffy
+# sniffy.ts
 
 TypeScript library for communicating with the ESP32-C6 WiFi sniffer firmware via [Web Serial API](https://developer.chrome.com/docs/capabilities/serial).
 
@@ -12,7 +12,7 @@ npm run build
 ## Usage
 
 ```ts
-import { SnifferClient, Frame } from "sniffy";
+import { SnifferClient, Frame, FILTER_MGMT, FILTER_DATA } from "sniffy";
 
 const client = new SnifferClient({
   onFrame(frame: Frame) {
@@ -26,7 +26,8 @@ const client = new SnifferClient({
 // must be called from a user gesture (click, keypress, etc.)
 button.onclick = async () => {
   await client.connect();
-  await client.scan(6); // scan channel 6
+  await client.scan(6); // scan channel 6, all frame types
+  await client.scan(6, FILTER_MGMT | FILTER_DATA); // mgmt + data only
 };
 
 // later...
@@ -54,7 +55,7 @@ new SnifferClient(options?)
 | Method | Description |
 |--------|-------------|
 | `connect(port?)` | Open the serial port. Triggers the browser port picker if no port is passed. |
-| `scan(channel?)` | Start scanning. Omit channel to cycle all channels. |
+| `scan(channel?, frameFilter?)` | Start scanning. Omit channel to cycle all channels. `frameFilter` is a bitmask of `FILTER_MGMT`, `FILTER_CTRL`, `FILTER_DATA` (0 = all). |
 | `stop()` | Stop scanning. |
 | `promiscOn()` | Enable promiscuous mode. |
 | `promiscOff()` | Disable promiscuous mode. |
@@ -70,6 +71,17 @@ All methods are async. `connect()` must be called from a user gesture.
 | `connected` | `boolean` | Whether a serial port is open |
 | `frameCount` | `number` | Total frames received |
 | `dropped` | `number` | Estimated dropped frames (via sequence number gaps) |
+
+### Filter Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `FILTER_ALL` | `0x00` | All frame types |
+| `FILTER_MGMT` | `0x01` | Management frames |
+| `FILTER_CTRL` | `0x02` | Control frames |
+| `FILTER_DATA` | `0x04` | Data frames |
+
+Combine with bitwise OR: `FILTER_MGMT | FILTER_DATA`.
 
 ### `Frame`
 

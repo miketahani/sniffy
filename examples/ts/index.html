@@ -125,6 +125,16 @@
         Ch:
         <input id="input-channel" type="number" min="1" max="14" value="6" />
       </label>
+      <label>
+        Filter:
+        <select id="select-filter">
+          <option value="0">All</option>
+          <option value="1">Management</option>
+          <option value="2">Control</option>
+          <option value="4">Data</option>
+          <option value="5">Mgmt+Data</option>
+        </select>
+      </label>
       <button id="btn-scan-ch" disabled>Scan Channel</button>
       <button id="btn-stop" disabled>Stop</button>
       <button id="btn-promisc-on" disabled>Promisc On</button>
@@ -228,10 +238,20 @@
         }
       });
 
+      function getFilter() {
+        return parseInt($("#select-filter").value, 10);
+      }
+
+      function filterName(v) {
+        const names = { 0: "all", 1: "mgmt", 2: "ctrl", 4: "data", 5: "mgmt+data" };
+        return names[v] ?? `0x${v.toString(16)}`;
+      }
+
       $("#btn-scan").addEventListener("click", async () => {
+        const filt = getFilter();
         try {
-          await client.scan();
-          logInfo("Scanning all channels...");
+          await client.scan(0, filt);
+          logInfo(`Scanning all channels (filter=${filterName(filt)})...`);
         } catch (e) {
           logError("Scan failed: " + e.message);
         }
@@ -239,9 +259,10 @@
 
       $("#btn-scan-ch").addEventListener("click", async () => {
         const ch = parseInt($("#input-channel").value, 10);
+        const filt = getFilter();
         try {
-          await client.scan(ch);
-          logInfo(`Scanning channel ${ch}...`);
+          await client.scan(ch, filt);
+          logInfo(`Scanning channel ${ch} (filter=${filterName(filt)})...`);
         } catch (e) {
           logError("Scan failed: " + e.message);
         }
