@@ -18,6 +18,21 @@ export const SUBTYPE_PROBE_RESP = 5;
 export const SUBTYPE_BEACON = 8;
 export const SUBTYPE_DEAUTH = 12;
 
+const FrameTypeName = {
+  [FRAME_TYPE_MGMT]: "mgmt",
+  [FRAME_TYPE_CTRL]: "ctrl",
+  [FRAME_TYPE_DATA]: "data",
+};
+
+const SubTypeName = {
+  [SUBTYPE_ASSOC_REQ]: "assoc_req",
+  [SUBTYPE_ASSOC_RESP]: "assoc_resp",
+  [SUBTYPE_PROBE_REQ]: "probe_req",
+  [SUBTYPE_PROBE_RESP]: "probe_resp",
+  [SUBTYPE_BEACON]: "beacon",
+  [SUBTYPE_DEAUTH]: "deauth",
+};
+
 export class Frame {
   // metadata (eagerly unpacked)
   readonly timestampUs: number;
@@ -231,6 +246,14 @@ export class Frame {
     );
   }
 
+  static frameTypeName(frameType: number): string {
+    return FrameTypeName[frameType as keyof typeof FrameTypeName] ?? frameType;
+  }
+
+  static subTypeName(subType: number): string {
+    return SubTypeName[subType as keyof typeof SubTypeName] ?? subType;
+  }
+
   static macStr(addr: Uint8Array | null): string {
     if (addr === null) return "??:??:??:??:??:??";
     return Array.from(addr)
@@ -239,10 +262,12 @@ export class Frame {
   }
 
   toString(): string {
+    const frameTypeName = Frame.frameTypeName(this.frameType);
+    const subtypeName = Frame.subTypeName(this.frameSubtype);
     const parts = [
       `ch=${this.channel}`,
       `rssi=${this.rssi}`,
-      `type=${this.frameType}/${this.frameSubtype}`,
+      `type=${frameTypeName}/${subtypeName}`,
       `src=${Frame.macStr(this.addr2)}`,
       `dst=${Frame.macStr(this.addr1)}`,
       `len=${this.raw.length}`,

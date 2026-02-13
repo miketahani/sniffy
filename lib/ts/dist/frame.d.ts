@@ -44,6 +44,8 @@ export declare class Frame {
     get isBeacon(): boolean;
     get isProbeReq(): boolean;
     get isProbeResp(): boolean;
+    static frameTypeName(frameType: number): string;
+    static subTypeName(subType: number): string;
     static macStr(addr: Uint8Array | null): string;
     toString(): string;
 }
