@@ -1,5 +1,9 @@
 /** Web Serial client for the ESP32-C6 WiFi sniffer firmware. */
 import { Frame } from "./frame.js";
+export declare const FILTER_ALL = 0;
+export declare const FILTER_MGMT = 1;
+export declare const FILTER_CTRL = 2;
+export declare const FILTER_DATA = 4;
 export declare class SnifferError extends Error {
     readonly cmd: number;
     readonly code: number;
@@ -36,7 +40,7 @@ export declare class SnifferClient {
      * Must be called from a user gesture (click, keypress, etc.).
      */
     connect(existingPort?: SerialPort): Promise<void>;
-    scan(channel?: number): Promise<void>;
+    scan(channel?: number, frameFilter?: number): Promise<void>;
     stop(): Promise<void>;
     promiscOn(): Promise<void>;
     promiscOff(): Promise<void>;
