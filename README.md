@@ -1,5 +1,5 @@
 # sniffy
-Forked and greatly expanded version of [Flock Safety Trap Shooter v0.3](https://github.com/GainSec/Flock-Safety-Trap-Shooter-Sniffer-Alarm) by [John Gaines](https://gainsec.com/).
+Forked and greatly expanded version of the [Flock sniffer](https://github.com/GainSec/Flock-Safety-Trap-Shooter-Sniffer-Alarm) by [John Gaines](https://gainsec.com/).
 
 Custom firmware for the [M5NanoC6](ttps://shop.m5stack.com/products/m5stack-nanoc6-dev-kit) (ESP32-C6) that sniffs and then alerts you of nearby Flock Safety devices.
 
