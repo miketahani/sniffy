@@ -15,9 +15,10 @@ TaskHandle_t      scan_task_handle = NULL;
 
 /* -------- channel table -------- */
 static const uint8_t channels[] = {
-    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
-    36, 40, 44, 48,
-    149, 153, 157, 161, 165
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+    // 5ghz not supported on device
+    // 36, 40, 44, 48,
+    // 149, 153, 157, 161, 165
 };
 static const int num_channels = sizeof(channels) / sizeof(channels[0]);
 
